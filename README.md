@@ -4,9 +4,6 @@ A web application for automatic speech recognition (ASR) and speaker diarization
 
 ---
 
-## Demo
-
-> Live at: [https://vikki-woody-plicately.ngrok-free.dev](https://vikki-woody-plicately.ngrok-free.dev) *(when the Kaggle notebook is running)*
 
 Upload audio or video → processing → speaker-labeled subtitles with playback sync.
 
