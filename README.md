@@ -21,6 +21,13 @@ Upload audio or video → processing → speaker-labeled subtitles with playback
 
 ---
 
+## DEMO 
+<img width="1017" height="480" alt="Image" src="https://github.com/user-attachments/assets/dda70ad6-3d3f-49bd-973f-8be0b47456e6" />
+<img width="878" height="707" alt="Image" src="https://github.com/user-attachments/assets/8ec9557c-f970-46a1-8ea8-e1e9efe82617" />
+<img width="904" height="641" alt="Image" src="https://github.com/user-attachments/assets/ea1944f9-c04d-43b9-8e2d-13697f28f0d1" />
+
+
+
 ## Architecture
 
 ```
