@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bengali ASR & Speaker Diarization</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 30px 0 20px;
+            border-bottom: 1px solid #222;
+            margin-bottom: 30px;
+        }
+        header h1 {
+            font-size: 1.6rem;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+        header p {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        /* Upload area */
+        .upload-area {
+            border: 2px dashed #333;
+            border-radius: 12px;
+            padding: 50px 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #161616;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #4a9eff;
+            background: #1a1a2e;
+        }
+        .upload-area svg {
+            width: 48px; height: 48px;
+            margin-bottom: 12px;
+            fill: #555;
+        }
+        .upload-area.dragover svg { fill: #4a9eff; }
+        .upload-area h2 { font-size: 1.1rem; color: #ccc; margin-bottom: 8px; }
+        .upload-area p { color: #666; font-size: 0.85rem; }
+
+        #file-input { display: none; }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+        .btn-primary { background: #4a9eff; color: #fff; }
+        .btn-primary:hover { background: #3a8eef; }
+        .btn-secondary { background: #2a2a2a; color: #ccc; }
+        .btn-secondary:hover { background: #333; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* File selected info */
+        .file-info {
+            display: none;
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            border: 1px solid #2a2a2a;
+        }
+        .file-info .name { color: #4a9eff; font-weight: 500; }
+        .file-info .size { color: #888; font-size: 0.85rem; }
+        .file-info.show { display: flex; justify-content: space-between; align-items: center; }
+
+        /* Progress */
+        .progress-section {
+            display: none;
+            margin-top: 20px;
+        }
+        .progress-section.show { display: block; }
+        .progress-bar-outer {
+            width: 100%;
+            height: 4px;
+            background: #222;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4a9eff, #7b61ff);
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.5s;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .progress-text { color: #888; font-size: 0.85rem; }
+
+        /* Results section */
+        .results-section {
+            display: none;
+            margin-top: 30px;
+        }
+        .results-section.show { display: block; }
+
+        /* Media player */
+        .player-wrapper {
+            background: #161616;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #222;
+        }
+        .player-wrapper h3 { margin-bottom: 12px; font-size: 1rem; color: #ccc; }
+        audio, video {
+            width: 100%;
+            border-radius: 8px;
+            outline: none;
+        }
+        video { max-height: 400px; background: #000; }
+
+        /* Active subtitle display */
+        .active-subtitle {
+            min-height: 60px;
+            padding: 16px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            margin-top: 12px;
+            text-align: center;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #fff;
+            border: 1px solid #2a2a4e;
+        }
+        .active-subtitle .speaker-tag {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-right: 8px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        /* Speaker colors */
+        .speaker-1 { background: #2d5a27; color: #8ce882; }
+        .speaker-2 { background: #5a2727; color: #e88282; }
+        .speaker-3 { background: #27435a; color: #82bfe8; }
+        .speaker-4 { background: #5a4e27; color: #e8d482; }
+        .speaker-5 { background: #4a275a; color: #d482e8; }
+        .speaker-unknown { background: #3a3a3a; color: #aaa; }
+
+        /* Subtitle list */
+        .subtitle-list {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #161616;
+            border-radius: 12px;
+            border: 1px solid #222;
+        }
+        .subtitle-list h3 {
+            padding: 16px 16px 12px;
+            font-size: 1rem;
+            color: #ccc;
+            border-bottom: 1px solid #222;
+            position: sticky;
+            top: 0;
+            background: #161616;
+            z-index: 1;
+        }
+        .sub-item {
+            padding: 10px 16px;
+            border-bottom: 1px solid #1a1a1a;
+            cursor: pointer;
+            transition: background 0.15s;
+            display: flex;
+            gap: 12px;
+        }
+        .sub-item:hover { background: #1a1a2e; }
+        .sub-item.active { background: #1e2a3e; }
+        .sub-item .time {
+            color: #4a9eff;
+            font-size: 0.8rem;
+            font-family: monospace;
+            min-width: 110px;
+            padding-top: 2px;
+        }
+        .sub-item .text {
+            flex: 1;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .sub-item .speaker-badge {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+
+        /* Actions bar */
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        /* Stats */
+        .stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .stat {
+            background: #161616;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 12px 20px;
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+        }
+        .stat .value { font-size: 1.4rem; font-weight: 700; color: #4a9eff; }
+        .stat .label { font-size: 0.75rem; color: #888; margin-top: 4px; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+        /* Error */
+        .error-msg {
+            display: none;
+            padding: 14px;
+            background: #2a1515;
+            border: 1px solid #5a2727;
+            border-radius: 8px;
+            color: #e88282;
+            margin-top: 16px;
+        }
+        .error-msg.show { display: block; }
+
+        /* Speaker naming */
+        .speaker-names-section {
+            display: none;
+            background: #161616;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            border: 1px solid #222;
+        }
+        .speaker-names-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .speaker-names-header h3 { font-size: 1rem; color: #ccc; }
+        .speaker-name-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .speaker-name-arrow { color: #555; }
+        .speaker-name-input {
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: #e0e0e0;
+            font-size: 0.9rem;
+            width: 180px;
+        }
+        .speaker-name-input:focus { outline: none; border-color: #4a9eff; }
+        .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎙️ Bengali ASR & Speaker Diarization</h1>
+            <p>Upload audio or video — get speaker-labeled Bengali subtitles</p>
+        </header>
+
+        <!-- Upload Section -->
+        <div id="upload-section">
+            <div class="upload-area" id="upload-area">
+                <svg viewBox="0 0 24 24"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M13.5,16V19H10.5V16H8L12,12L16,16H13.5M13,9V3.5L18.5,9H13Z"/></svg>
+                <h2>Drop your audio or video file here</h2>
+                <p>Supports WAV, MP3, FLAC, MP4, MKV, AVI, MOV, WebM (max 500MB)</p>
+                <input type="file" id="file-input" accept=".wav,.mp3,.flac,.ogg,.m4a,.wma,.mp4,.mkv,.avi,.mov,.webm">
+            </div>
+
+            <div class="file-info" id="file-info">
+                <div>
+                    <span class="name" id="file-name"></span>
+                    <span class="size" id="file-size"></span>
+                </div>
+                <button class="btn btn-primary" id="process-btn" onclick="startProcessing()">
+                    Generate Subtitles
+                </button>
+            </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="progress-section" id="progress-section">
+            <div class="progress-bar-outer">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <p class="progress-text" id="progress-text">Uploading...</p>
+        </div>
+
+        <!-- Error -->
+        <div class="error-msg" id="error-msg"></div>
+
+        <!-- Results -->
+        <div class="results-section" id="results-section">
+            <div class="stats" id="stats"></div>
+
+            <!-- Speaker naming -->
+            <div class="speaker-names-section" id="speaker-names-section">
+                <div class="speaker-names-header">
+                    <h3>👤 Name the Speakers</h3>
+                    <button class="btn btn-primary btn-sm" onclick="applyNames()">Apply Names</button>
+                </div>
+                <div id="speaker-name-inputs"></div>
+            </div>
+
+            <div class="player-wrapper">
+                <h3>▶ Player</h3>
+                <div id="media-container"></div>
+                <div class="active-subtitle" id="active-subtitle">
+                    <span style="color: #666;">Subtitles will appear here during playback</span>
+                </div>
+            </div>
+
+            <div class="subtitle-list">
+                <h3>📝 Subtitles</h3>
+                <div id="subtitle-items"></div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" onclick="downloadSubtitle('srt')">⬇ Download SRT</button>
+                <button class="btn btn-primary" onclick="downloadSubtitle('vtt')">⬇ Download VTT</button>
+                <button class="btn btn-secondary" onclick="resetApp()">↩ Process Another</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        let currentJobId = null;
+        let segments = [];
+        let mediaElement = null;
+        let pollInterval = null;
+        let speakerNames = {};
+
+        // Speaker color mapping
+        const speakerColors = {
+            'SPEAKER_1': 'speaker-1',
+            'SPEAKER_2': 'speaker-2',
+            'SPEAKER_3': 'speaker-3',
+            'SPEAKER_4': 'speaker-4',
+            'SPEAKER_5': 'speaker-5',
+        };
+        function getSpeakerClass(speaker) {
+            return speakerColors[speaker] || 'speaker-unknown';
+        }
+        function getDisplayName(speaker) {
+            return speakerNames[speaker] || speaker;
+        }
+
+        // ── Upload area ──
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) handleFile(fileInput.files[0]);
+        });
+
+        function handleFile(file) {
+            selectedFile = file;
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-size').textContent =
+                ` (${(file.size / 1024 / 1024).toFixed(1)} MB)`;
+            document.getElementById('file-info').classList.add('show');
+        }
+
+        // ── Processing ──
+        async function startProcessing() {
+            if (!selectedFile) return;
+
+            // Show progress
+            document.getElementById('progress-section').classList.add('show');
+            document.getElementById('error-msg').classList.remove('show');
+            document.getElementById('results-section').classList.remove('show');
+            document.getElementById('process-btn').disabled = true;
+
+            const bar = document.getElementById('progress-bar');
+            const text = document.getElementById('progress-text');
+
+            // Upload
+            bar.style.width = '10%';
+            text.textContent = 'Uploading file...';
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+
+            try {
+                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Upload failed');
+                }
+                const data = await res.json();
+                currentJobId = data.job_id;
+
+                bar.style.width = '25%';
+                text.textContent = 'Processing started...';
+
+                // Poll status
+                pollStatus();
+            } catch (e) {
+                showError(e.message);
+            }
+        }
+
+        function pollStatus() {
+            const bar = document.getElementById('progress-bar');
+            const text = document.getElementById('progress-text');
+            let progress = 25;
+
+            pollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/status/${currentJobId}`);
+                    const data = await res.json();
+
+                    text.textContent = data.progress || data.status;
+
+                    if (data.status === 'processing') {
+                        progress = Math.min(progress + 2, 90);
+                        bar.style.width = progress + '%';
+                    } else if (data.status === 'done') {
+                        clearInterval(pollInterval);
+                        bar.style.width = '100%';
+                        bar.style.animation = 'none';
+                        text.textContent = 'Complete!';
+                        setTimeout(loadResults, 500);
+                    } else if (data.status === 'error') {
+                        clearInterval(pollInterval);
+                        showError(data.error || 'Processing failed');
+                    }
+                } catch (e) {
+                    // Network error, keep polling
+                }
+            }, 2000);
+        }
+
+        async function loadResults() {
+            try {
+                const res = await fetch(`/api/result/${currentJobId}`);
+                const data = await res.json();
+                segments = data.segments;
+                renderResults(data);
+            } catch (e) {
+                showError('Failed to load results: ' + e.message);
+            }
+        }
+
+        function renderResults(data) {
+            // Hide upload, show results
+            document.getElementById('progress-section').classList.remove('show');
+            document.getElementById('results-section').classList.add('show');
+
+            // Stats
+            const statsEl = document.getElementById('stats');
+            statsEl.innerHTML = `
+                <div class="stat"><div class="value">${data.num_segments}</div><div class="label">Segments</div></div>
+                <div class="stat"><div class="value">${data.num_speakers}</div><div class="label">Speakers</div></div>
+                <div class="stat"><div class="value">${formatTime(segments[segments.length-1]?.end || 0)}</div><div class="label">Duration</div></div>
+            `;
+
+            // Speaker naming panel
+            const uniqueSpeakers = [...new Set(segments.map(s => s.speaker))].sort();
+            renderSpeakerPanel(uniqueSpeakers);
+
+            // Media player
+            const container = document.getElementById('media-container');
+            const filename = data.original_filename.toLowerCase();
+            const isVideo = ['.mp4','.mkv','.avi','.mov','.webm'].some(e => filename.endsWith(e));
+
+            if (isVideo) {
+                container.innerHTML = `<video id="media-player" controls crossorigin="anonymous">
+                    <source src="/api/media/${currentJobId}">
+                    <track kind="subtitles" src="/api/subtitle/${currentJobId}" srclang="bn" label="Bengali" default>
+                </video>`;
+            } else {
+                container.innerHTML = `<audio id="media-player" controls>
+                    <source src="/api/media/${currentJobId}">
+                </audio>`;
+            }
+            mediaElement = document.getElementById('media-player');
+            mediaElement.addEventListener('timeupdate', syncSubtitles);
+
+            renderSubtitleList();
+        }
+
+        function renderSpeakerPanel(speakers) {
+            const section = document.getElementById('speaker-names-section');
+            const inputs = document.getElementById('speaker-name-inputs');
+            inputs.innerHTML = speakers.map(sp => `
+                <div class="speaker-name-row">
+                    <span class="speaker-badge ${getSpeakerClass(sp)}">${sp}</span>
+                    <span class="speaker-name-arrow">→</span>
+                    <input type="text" class="speaker-name-input" id="name-${sp}"
+                           value="${speakerNames[sp] || sp}"
+                           placeholder="Custom name"
+                           onkeyup="if(event.key==='Enter') applyNames()">
+                </div>
+            `).join('');
+            section.style.display = 'block';
+        }
+
+        function renderSubtitleList() {
+            const itemsEl = document.getElementById('subtitle-items');
+            itemsEl.innerHTML = segments.map((seg, i) => `
+                <div class="sub-item" id="sub-${i}" onclick="seekTo(${seg.start})">
+                    <div class="time">${formatTime(seg.start)} → ${formatTime(seg.end)}</div>
+                    <div class="text">
+                        <span class="speaker-badge ${getSpeakerClass(seg.speaker)}">${getDisplayName(seg.speaker)}</span>
+                        ${escapeHtml(seg.text)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function applyNames() {
+            const uniqueSpeakers = [...new Set(segments.map(s => s.speaker))];
+            uniqueSpeakers.forEach(sp => {
+                const input = document.getElementById(`name-${sp}`);
+                if (input) speakerNames[sp] = input.value.trim() || sp;
+            });
+            renderSubtitleList();
+            syncSubtitles();
+        }
+
+        function syncSubtitles() {
+            if (!mediaElement) return;
+            const t = mediaElement.currentTime;
+            const activeEl = document.getElementById('active-subtitle');
+
+            let found = false;
+            segments.forEach((seg, i) => {
+                const el = document.getElementById(`sub-${i}`);
+                if (t >= seg.start && t <= seg.end) {
+                    if (!found) {
+                        const cls = getSpeakerClass(seg.speaker);
+                        activeEl.innerHTML = `<span class="speaker-tag ${cls}">${getDisplayName(seg.speaker)}</span> ${escapeHtml(seg.text)}`;
+                        found = true;
+                    }
+                    el?.classList.add('active');
+                    // Scroll into view
+                    if (el && !isElementVisible(el)) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                } else {
+                    el?.classList.remove('active');
+                }
+            });
+
+            if (!found) {
+                activeEl.innerHTML = '<span style="color:#666;">...</span>';
+            }
+        }
+
+        function isElementVisible(el) {
+            const parent = el.closest('.subtitle-list');
+            if (!parent) return true;
+            const pRect = parent.getBoundingClientRect();
+            const eRect = el.getBoundingClientRect();
+            return eRect.top >= pRect.top && eRect.bottom <= pRect.bottom;
+        }
+
+        function seekTo(time) {
+            if (mediaElement) {
+                mediaElement.currentTime = time;
+                mediaElement.play();
+            }
+        }
+
+        function downloadSubtitle(format) {
+            if (!segments.length) return;
+            if (format === 'srt') {
+                const lines = segments.map((seg, i) => {
+                    const name = getDisplayName(seg.speaker);
+                    return `${i+1}\n${toSRTTime(seg.start)} --> ${toSRTTime(seg.end)}\n[${name}] ${seg.text}\n`;
+                });
+                downloadBlob(lines.join('\n'), 'subtitles.srt', 'text/plain;charset=utf-8');
+            } else {
+                const lines = ['WEBVTT', ''];
+                segments.forEach((seg, i) => {
+                    const name = getDisplayName(seg.speaker);
+                    lines.push(`${i+1}`, `${toVTTTime(seg.start)} --> ${toVTTTime(seg.end)}`, `<v ${name}>${seg.text}`, '');
+                });
+                downloadBlob(lines.join('\n'), 'subtitles.vtt', 'text/vtt;charset=utf-8');
+            }
+        }
+        function toSRTTime(s) {
+            const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60), ms = Math.round((s%1)*1000);
+            return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')},${String(ms).padStart(3,'0')}`;
+        }
+        function toVTTTime(s) { return toSRTTime(s).replace(',', '.'); }
+        function downloadBlob(content, filename, type) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([content], { type }));
+            a.download = filename;
+            a.click();
+        }
+
+        function resetApp() {
+            if (pollInterval) clearInterval(pollInterval);
+            currentJobId = null;
+            segments = [];
+            selectedFile = null;
+            mediaElement = null;
+            speakerNames = {};
+            document.getElementById('speaker-names-section').style.display = 'none';
+            document.getElementById('file-info').classList.remove('show');
+            document.getElementById('progress-section').classList.remove('show');
+            document.getElementById('results-section').classList.remove('show');
+            document.getElementById('error-msg').classList.remove('show');
+            document.getElementById('process-btn').disabled = false;
+            document.getElementById('progress-bar').style.width = '0%';
+            document.getElementById('progress-bar').style.animation = '';
+            fileInput.value = '';
+        }
+
+        function showError(msg) {
+            document.getElementById('error-msg').textContent = msg;
+            document.getElementById('error-msg').classList.add('show');
+            document.getElementById('progress-section').classList.remove('show');
+            document.getElementById('process-btn').disabled = false;
+        }
+
+        function formatTime(s) {
+            const m = Math.floor(s / 60);
+            const sec = Math.floor(s % 60);
+            return `${m}:${sec.toString().padStart(2, '0')}`;
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
