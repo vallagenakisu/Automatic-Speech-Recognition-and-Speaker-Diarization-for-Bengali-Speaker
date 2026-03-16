@@ -1,6 +1,7 @@
 # Bengali ASR & Speaker Diarization Web App
 
 A web application for automatic speech recognition (ASR) and speaker diarization of Bengali audio/video. Upload a file, get speaker-labeled Bengali subtitles with a synced media player — entirely free to run on Kaggle with GPU.
+We mainly fine-tuned and developed the whole architecture for BUET DL Sprint 4.0. We were one of the finalist of the competition where our Diarization model placed 2nd on the private leaderboard. We build the web application just to test our model and appreciate it.
 
 ---
 
